@@ -92,26 +92,16 @@ def Upsample(dim):
 def Downsample(dim):
     return nn.Conv2d(dim, dim, 4, 2, 1)
 
-class LayerNorm(nn.Module):
-    def __init__(self, dim, eps = 1e-5):
-        super().__init__()
-        self.eps = eps
-        self.g = nn.Parameter(torch.ones(1, dim, 1, 1))
-        self.b = nn.Parameter(torch.zeros(1, dim, 1, 1))
-
-    def forward(self, x):
-        var = torch.var(x, dim = 1, unbiased = False, keepdim = True)
-        mean = torch.mean(x, dim = 1, keepdim = True)
-        return (x - mean) / (var + self.eps).sqrt() * self.g + self.b
-
 class PreNorm(nn.Module):
     def __init__(self, dim, fn):
         super().__init__()
         self.fn = fn
-        self.norm = LayerNorm(dim)
+        self.norm = torch.nn.LayerNorm(dim, elementwise_affine=False)
 
     def forward(self, x):
+        x = torch.permute(x, (0, 2, 3, 1))
         x = self.norm(x)
+        x = torch.permute(x, (0, 3, 1, 2))
         return self.fn(x)
 
 # building block modules
@@ -167,10 +157,9 @@ class LinearAttention(nn.Module):
         hidden_dim = dim_head * heads
         self.to_qkv = nn.Conv2d(dim, hidden_dim * 3, 1, bias = False)
 
-        self.to_out = nn.Sequential(
-            nn.Conv2d(hidden_dim, dim, 1),
-            LayerNorm(dim)
-        )
+        self.out_conv = nn.Conv2d(hidden_dim, dim, 1)
+        self.out_ln = nn.LayerNorm(dim, elementwise_affine=False)
+
 
     def forward(self, x):
         b, c, h, w = x.shape
@@ -185,7 +174,12 @@ class LinearAttention(nn.Module):
 
         out = torch.einsum('b h d e, b h d n -> b h e n', context, q)
         out = rearrange(out, 'b h c (x y) -> b (h c) x y', h = self.heads, x = h, y = w)
-        return self.to_out(out)
+ 
+        out = self.out_conv(out)
+        out = torch.permute(out, (0, 2, 3, 1))
+        out = self.out_ln(out)
+        return torch.permute(out, (0, 3, 1 ,2))
+
 
 class Attention(nn.Module):
     def __init__(self, dim, heads = 4, dim_head = 32):
