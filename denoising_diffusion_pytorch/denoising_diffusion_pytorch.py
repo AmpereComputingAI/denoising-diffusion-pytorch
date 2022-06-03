@@ -1,7 +1,7 @@
 import math
 import copy
 import torch
-import timeit
+import time
 from torch import nn, einsum
 import torch.nn.functional as F
 from inspect import isfunction
@@ -670,9 +670,9 @@ if __name__ == '__main__':
        torch.jit.save(frozen, "model.pt")
 
        for i in range(10):
-               start = timeit.timeit()
+               start = time.time()
                frozen(dataset[0], t)
-               end = timeit.timeit()
+               end = time.time()
                print (end - start)
         
 
