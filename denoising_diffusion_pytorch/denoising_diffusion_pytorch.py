@@ -1,6 +1,7 @@
 import math
 import copy
 import torch
+import timeit
 from torch import nn, einsum
 import torch.nn.functional as F
 from inspect import isfunction
@@ -661,3 +662,23 @@ class Trainer(object):
                 pbar.update(1)
 
         print('training complete')
+        
+
+if __name__ == '__main__':
+       torch.no_grad()
+       model = Unet(64)
+       model.eval()
+       dataset = Dataset("./images", 64)
+       t = torch.randint(0, 100, (64,)).long()
+       script = torch.jit.trace(model, (dataset[0], t))
+       frozen = torch.jit.freeze(script)
+
+       torch.jit.save(frozen, "model.pt")
+
+       for i in range(10):
+               start = timeit.timeit()
+               frozen(dataset[0], t)
+               end = timeit.timeit()
+               print (end - start)
+        
+
