@@ -170,9 +170,17 @@ class LinearAttention(nn.Module):
         k = k.softmax(dim = -1)
 
         q = q * self.scale
-        context = torch.einsum('b h d n, b h e n -> b h d e', k, v)
+        fi1 = torch.flatten(k, 0, 1)
+        fi2 = torch.flatten(v, 0, 1)
+        res2 = torch.bmm(fi1, torch.transpose(fi2, 1, 2))
+        context = res2.view(k.size(0), k.size(1), k.size(2), v.size(2))
+        #context = torch.einsum('b h d n, b h e n -> b h d e', k, v)
 
-        out = torch.einsum('b h d e, b h d n -> b h e n', context, q)
+        fi1 = torch.flatten(context, 0, 1)
+        fi2 = torch.flatten(q, 0, 1)
+        res2 = torch.bmm(torch.transpose(fi1, 1, 2), fi2)
+        out = res2.view(context.size(0), context.size(1), context.size(3), q.size(3))
+        #out = torch.einsum('b h d e, b h d n -> b h e n', context, q)
         out = rearrange(out, 'b h c (x y) -> b (h c) x y', h = self.heads, x = h, y = w)
  
         out = self.out_conv(out)
@@ -196,11 +204,19 @@ class Attention(nn.Module):
         q, k, v = map(lambda t: rearrange(t, 'b (h c) x y -> b h c (x y)', h = self.heads), qkv)
         q = q * self.scale
 
-        sim = einsum('b h d i, b h d j -> b h i j', q, k)
+        fi1 = torch.flatten(q, 0, 1)
+        fi2 = torch.flatten(k, 0, 1)
+        res2 = torch.bmm(torch.transpose(fi1, 1, 2), fi2)
+        sim = res2.view(q.size(0), q.size(1), q.size(3), k.size(3))
+        #sim = einsum('b h d i, b h d j -> b h i j', q, k)
         sim = sim - sim.amax(dim = -1, keepdim = True).detach()
         attn = sim.softmax(dim = -1)
 
-        out = einsum('b h i j, b h d j -> b h i d', attn, v)
+        fi1 = torch.flatten(attn, 0, 1)
+        fi2 = torch.flatten(v, 0, 1)
+        res2 = torch.bmm(fi1, torch.transpose(fi2, 1, 2))
+        out = res2.view(attn.size(0), attn.size(1), attn.size(2), v.size(2))
+        #out = einsum('b h i j, b h d j -> b h i d', attn, v)
         out = rearrange(out, 'b h (x y) d -> b (h d) x y', x = h, y = w)
         return self.to_out(out)
 
