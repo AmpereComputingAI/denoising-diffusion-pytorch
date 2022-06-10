@@ -2,6 +2,7 @@ import math
 import copy
 import torch
 import time
+import os
 from torch import nn, einsum
 import torch.nn.functional as F
 from inspect import isfunction
@@ -9,6 +10,7 @@ from functools import partial
 
 from torch.utils import data
 from torch.cuda.amp import autocast, GradScaler
+from torch.autograd.profiler import profile
 
 from pathlib import Path
 from torch.optim import Adam
@@ -682,13 +684,26 @@ if __name__ == '__main__':
        t = torch.randint(0, 100, (64,)).long()
        script = torch.jit.trace(model, (dataset[0], t))
        frozen = torch.jit.freeze(script)
+       
+       if "PT_PROFILER" in os.environ and os.environ["PT_PROFILER"] == "1":
+           profile_pt = True
+       else:
+           profile_pt = False
 
        torch.jit.save(frozen, "model.pt")
 
        for i in range(10):
-               start = time.time()
-               frozen(dataset[0], t)
-               end = time.time()
-               print (end - start)
+          start = time.time()
+          if profile_pt:
+              with profile() as prof:
+                  frozen(dataset[0], t)
+          else:
+              frozen(dataset[0], t)
+          end = time.time()
+          print (end - start)
+            
+       if profile_pt:
+           torch._C._aio_profiler_print()
+           print(prof.key_averages().table(sort_by='cpu_time_total', row_limit=50))
         
 
