@@ -691,8 +691,10 @@ if __name__ == '__main__':
            profile_pt = False
 
        torch.jit.save(frozen, "model.pt")
+       frozen(dataset[0], t)
+       frozen(dataset[0], t)
 
-       for i in range(10):
+       for i in range(5):
           start = time.time()
           if profile_pt:
               with profile() as prof:
