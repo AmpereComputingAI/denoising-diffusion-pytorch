@@ -705,7 +705,7 @@ if __name__ == '__main__':
           print (end - start)
             
        if profile_pt:
-           torch._C._aio_profiler_print()
+#           torch._C._aio_profiler_print()
            print(prof.key_averages().table(sort_by='cpu_time_total', row_limit=50))
         
 
