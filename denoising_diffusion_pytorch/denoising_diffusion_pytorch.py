@@ -679,13 +679,14 @@ class Trainer(object):
 
 if __name__ == '__main__':
        torch.no_grad()
-       dataset = Dataset("./images", 64)
-       t = torch.randint(0, 100, (64,)).long()
+       bs = 4
+       img = torch.randn((bs, 3, 64, 64))
+       t = torch.full((bs,), 0)
 
        if Path("./model.pt").is_file() == False:
          model = Unet(64)
          model.eval()
-         script = torch.jit.trace(model, (dataset[0], t))
+         script = torch.jit.trace(model, (img, t))
          frozen = torch.jit.freeze(script)
          torch.jit.save(frozen, "./model.pt")
        else:
@@ -696,16 +697,18 @@ if __name__ == '__main__':
        else:
            profile_pt = False
 
-       frozen(dataset[0], t)
-       frozen(dataset[0], t)
+       print("image size {}".format(img.shape))
+
+       frozen(img, t)
+       frozen(img, t)
 
        for i in range(5):
           start = time.time()
           if profile_pt:
               with profile() as prof:
-                  frozen(dataset[0], t)
+                  frozen(img, t)
           else:
-              frozen(dataset[0], t)
+              frozen(img, t)
           end = time.time()
           print (end - start)
             
