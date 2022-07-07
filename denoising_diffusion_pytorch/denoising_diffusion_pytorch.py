@@ -680,40 +680,19 @@ class Trainer(object):
 if __name__ == '__main__':
        torch.no_grad()
        bs = 4
-       img = torch.randn((bs, 3, 64, 64))
-       t = torch.full((bs,), 0)
+       device = 'cuda:0'
+       #device = 'cpu'
+       img = torch.randn((bs, 3, 64, 64), device=device)
+       t = torch.full((bs,), 0, device=device, dtype=torch.long)
 
-       if Path("./model.pt").is_file() == False:
-         model = Unet(64)
-         model.eval()
-         script = torch.jit.trace(model, (img, t))
-         frozen = torch.jit.freeze(script)
-         torch.jit.save(frozen, "./model.pt")
-       else:
-         frozen = torch.jit.load("./model.pt")
-       
-       if "PT_PROFILER" in os.environ and os.environ["PT_PROFILER"] == "1":
-           profile_pt = True
-       else:
-           profile_pt = False
+       model = Unet(64)
+       model.eval()
+       model.to(device)
 
-       print("image size {}".format(img.shape))
-
-       frozen(img, t)
-       frozen(img, t)
+       model(img, t)
 
        for i in range(5):
           start = time.time()
-          if profile_pt:
-              with profile() as prof:
-                  frozen(img, t)
-          else:
-              frozen(img, t)
+          model(img, t)
           end = time.time()
           print (end - start)
-            
-       if profile_pt:
-           torch._C._aio_profiler_print()
-           print(prof.key_averages().table(sort_by='cpu_time_total', row_limit=50))
-        
-
