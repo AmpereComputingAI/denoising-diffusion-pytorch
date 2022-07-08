@@ -680,13 +680,20 @@ class Trainer(object):
 if __name__ == '__main__':
        torch.no_grad()
        bs = 4
-       img = torch.randn((bs, 3, 64, 64))
+       img = torch.randn(4, 3, 64, 64)
        t = torch.full((bs,), 0)
 
        if Path("./model.pt").is_file() == False:
          model = Unet(64)
          model.eval()
-         script = torch.jit.trace(model, (img, t))
+         diffusion = GaussianDiffusion(
+    	   model,
+           image_size = 64,
+           timesteps = 100,   # number of steps
+           loss_type = 'l1'    # L1 or L2
+         )
+         diffusion.eval()
+         script = torch.jit.trace(diffusion, img)
          frozen = torch.jit.freeze(script)
          torch.jit.save(frozen, "./model.pt")
        else:
@@ -699,16 +706,16 @@ if __name__ == '__main__':
 
        print("image size {}".format(img.shape))
 
-       frozen(img, t)
-       frozen(img, t)
+       frozen(img)
+       frozen(img)
 
        for i in range(5):
           start = time.time()
           if profile_pt:
               with profile() as prof:
-                  frozen(img, t)
+                  frozen(img)
           else:
-              frozen(img, t)
+              frozen(img)
           end = time.time()
           print (end - start)
             
