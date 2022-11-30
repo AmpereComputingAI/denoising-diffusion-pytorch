@@ -19,6 +19,7 @@ from PIL import Image
 
 from tqdm import tqdm
 from einops import rearrange
+from pathlib import Path
 
 # helpers functions
 
@@ -678,29 +679,36 @@ class Trainer(object):
 
 if __name__ == '__main__':
        torch.no_grad()
-       model = Unet(64)
-       model.eval()
-       dataset = Dataset("./images", 64)
-       t = torch.randint(0, 100, (64,)).long()
-       script = torch.jit.trace(model, (dataset[0], t))
-       frozen = torch.jit.freeze(script)
+       bs = 4
+       img = torch.randn((bs, 3, 64, 64))
+       t = torch.full((bs,), 0)
+
+       if Path("./model.pt").is_file() == False:
+         model = Unet(64)
+         model.eval()
+         script = torch.jit.trace(model, (img, t))
+         frozen = torch.jit.freeze(script)
+         torch.jit.save(frozen, "./model.pt")
+       else:
+         frozen = torch.jit.load("./model.pt")
        
        if "PT_PROFILER" in os.environ and os.environ["PT_PROFILER"] == "1":
            profile_pt = True
        else:
            profile_pt = False
 
-       torch.jit.save(frozen, "model.pt")
-       frozen(dataset[0], t)
-       frozen(dataset[0], t)
+       print("image size {}".format(img.shape))
+
+       frozen(img, t)
+       frozen(img, t)
 
        for i in range(5):
           start = time.time()
           if profile_pt:
               with profile() as prof:
-                  frozen(dataset[0], t)
+                  frozen(img, t)
           else:
-              frozen(dataset[0], t)
+              frozen(img, t)
           end = time.time()
           print (end - start)
             
